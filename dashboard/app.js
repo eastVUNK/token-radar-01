@@ -228,12 +228,18 @@
 
   function boardTable() {
     var list = sortedRows(rows());
+    // Bars are relative to the board's #1, not to the filtered list, so the same
+    // row keeps the same bar under every filter and sort.
+    var maxImplied = (DATA.rows.length && DATA.rows[0].implied_value_usd) || 1;
     var body = list.map(function (r) {
       var g = r.change_7d;
+      var pct = Math.max(3, Math.round((r.implied_value_usd / maxImplied) * 100));
       return el('tr', { 'class': 'row' + (state.selected === r.slug ? ' sel' : ''), onclick: function () { state.selected = r.slug; writeHash(); render(); } },
         el('td', { 'class': 'num', text: String(r.rank) }),
         el('td', null, el('span', { 'class': 'name', text: r.name }), isWatchlist(r) ? el('span', { 'class': 'badge', text: 'WATCHLIST' }) : null, el('span', { 'class': 'sub2', text: (r.category || 'Other') + ' · ' + r.chains.slice(0, 3).join(', ') + (r.chains.length > 3 ? ' +' + (r.chains.length - 3) : '') })),
-        el('td', { 'class': 'num', text: fmtUsd(r.implied_value_usd) }),
+        el('td', { 'class': 'num' }, el('div', { 'class': 'implied' },
+          el('div', { 'class': 'bar', 'aria-hidden': 'true' }, el('i', { style: 'width:' + pct + '%' })),
+          el('span', { 'class': 'num', text: fmtUsd(r.implied_value_usd) }))),
         el('td', { 'class': 'num', text: fmtUsd(r.tvl_usd) }),
         el('td', { 'class': 'num' }, el('span', { 'class': g === null ? '' : g >= 0 ? 'up' : 'down', text: fmtPct(g) })),
         el('td', { 'class': 'num', text: fmtAge(r.age_days) }));
