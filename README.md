@@ -18,8 +18,12 @@ network) plus `board.json` and `dossier.json` to `/output`.
   top 10: Steakhouse $620M, Sentora $596M, Gauntlet $369M); two runs byte-identical;
   gate shape verified locally; 3 real screenshots taken with Chrome headless shell.
   See `STAGE2.md`.
-- **Stage 3 — next:** cold-read pass as the judge would, genuine `main.ts` revision,
-  re-verify, then bundle transcripts and `makefun check`. Do NOT submit after Stage 2.
+- **Stage 3 — done:** cold-read against the house starter; ranking defensible, no
+  fix needed. Added per-row "Why this rank" stories (token status, value driver,
+  sensitivity), model radar-3; two runs byte-identical, 0 mismatches, screenshots
+  re-shot. See `STAGE3.md`.
+- **Stage 4 — next:** final review as the judge would, then Stage 5 sign-off,
+  then bundle transcripts and `makefun check`. Do NOT submit after Stage 3.
 
 ## The model (design, see STAGE1.md)
 
