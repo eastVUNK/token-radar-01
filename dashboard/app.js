@@ -292,6 +292,10 @@
         el('div', null, el('div', { 'class': 'k', text: 'Age' }), el('div', { 'class': 'v', text: fmtAge(r.age_days) })),
         el('div', null, el('div', { 'class': 'k', text: 'Category multiple' }), el('div', { 'class': 'v', text: r.category_multiple.toFixed(2) + 'x' }))),
       el('div', { 'class': 'formula', text: formula }),
+      el('h3', { text: 'Why this rank' }),
+      el('p', { 'class': 'story', text: r.story.token_status }),
+      el('p', { 'class': 'story', text: r.story.value_driver }),
+      el('p', { 'class': 'story', text: r.story.sensitivity }),
       el('h3', { text: 'How to farm it' }),
       el('ol', { 'class': 'steps' }, steps.map(function (s) {
         var parts = s.split(' Cost: ');
