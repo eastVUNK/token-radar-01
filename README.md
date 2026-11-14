@@ -14,8 +14,12 @@ network) plus `board.json` and `dossier.json` to `/output`.
 - **Stage 1 — done:** kit fetched and verified (20/20 files, sha256), scorer
   and judge model read, snapshot analysed, ranking-signal design written in
   `STAGE1.md`, repo created.
-- **Stage 2 — next:** build `main.ts`, the model, the dashboard and the farm
-  plans; run locally; take the 3 screenshots.
+- **Stage 2 — done:** `main.ts` + `lib/model.ts` + `dashboard/` built (198 rows,
+  top 10: Steakhouse $620M, Sentora $596M, Gauntlet $369M); two runs byte-identical;
+  gate shape verified locally; 3 real screenshots taken with Chrome headless shell.
+  See `STAGE2.md`.
+- **Stage 3 — next:** cold-read pass as the judge would, genuine `main.ts` revision,
+  re-verify, then bundle transcripts and `makefun check`. Do NOT submit after Stage 2.
 
 ## The model (design, see STAGE1.md)
 
