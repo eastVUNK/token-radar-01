@@ -25,8 +25,11 @@ network) plus `board.json` and `dossier.json` to `/output`.
 - **Stage 4 — done:** final review, verdict NO (not quite final): one improvement
   worth doing — board readability (implied-value bars + search width). All
   verification passed on HEAD 369b47aa. See `STAGE4.md`.
-- **Stage 5 — next:** the board-readability change, re-verify, sign-off, then bundle
-  transcripts and `makefun check`. Do NOT submit after Stage 4.
+- **Stage 5 — done and FROZEN:** board readability (implied-value bars + wider
+  search), model radar-3 unchanged, 2 runs byte-identical, 0 mismatches, screenshots
+  re-shot. See `STAGE5.md`.
+- **Next:** export transcripts, bundle, `makefun check`, submit — from the main chat,
+  before Sun 2026-12-14 17:00 WIB. No further code change without a new stage.
 
 ## The model (design, see STAGE1.md)
 
