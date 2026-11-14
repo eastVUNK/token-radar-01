@@ -76,7 +76,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-2';
+export const MODEL_VERSION = 'radar-3';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -95,6 +95,18 @@ export interface FarmStep {
   text: string;
   cost: string;
   time: string;
+}
+
+/**
+ * One row's "why this rank": three sentences computed from the same figures
+ * that score the row — why it counts as tokenless, why it is worth what the
+ * model says, and how sensitive that value is to one week's growth. The
+ * dashboard shows it in the detail view; the starter shows no such story.
+ */
+export interface RowStory {
+  token_status: string;
+  value_driver: string;
+  sensitivity: string;
 }
 
 /** One row of board.json: the ranked board's row. */
@@ -121,6 +133,7 @@ export interface BoardRow {
     age_days: number | null;
   };
   farm_steps: string[];
+  story: RowStory;
 }
 
 /** The dashboard's compact view of one row, with farm plans generated in the page. */
@@ -139,6 +152,7 @@ export interface RadarRow {
   category_multiple: number;
   growth_multiplier: number;
   maturity_multiplier: number;
+  story: RowStory;
 }
 
 /** A live-token protocol: it already trades, so the board shows the market's own value. */
@@ -306,6 +320,76 @@ export function impliedValue(
 
 const round4 = (n: number): number => Math.round(n * 1e4) / 1e4;
 
+/** A dollar amount in short form: $2.75B, $514M, $6.2M, $843K. */
+function fmtUsdShort(n: number): string {
+  if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(2).replace(/0$/, '')}B`;
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(n / 1_000_000 >= 100 ? 0 : 1)}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+  return `$${Math.round(n)}`;
+}
+
+/** A signed percentage with two decimals: +5.64%, -2.19%. */
+function fmtSignedPct(n: number): string {
+  return `${n >= 0 ? '+' : '-'}${Math.abs(n).toFixed(2)}%`;
+}
+
+/** Where a protocol comes from on the board: the watchlist, or an early find above or below the floor. */
+function provenance(p: SnapshotProtocol, snapshot: Snapshot): string {
+  if (snapshot.watchlist.includes(p.slug)) return 'On the house watchlist.';
+  if (p.tvl_usd >= snapshot.floor_usd) return 'An early find above the $50M floor.';
+  return 'An early find below the $50M floor.';
+}
+
+/**
+ * One row's story, from the same figures that score it. Nothing is written by
+ * hand per protocol: the sentences are templates filled with this row's TVL
+ * ranks, its category's live comparables, and a recomputation of its implied
+ * value at a different seven-day growth.
+ */
+function storyFor(
+  p: SnapshotProtocol,
+  age: number | null,
+  multiple: number,
+  implied: number,
+  tvlRank: number,
+  tvlRankInCategory: number,
+  categoryCount: number,
+  boardSize: number,
+  snapshot: Snapshot,
+  multiples: { global: number; byCategory: Map<string, CategoryMultiple> },
+  model: ModelConstants,
+): RowStory {
+  const tokenStatus =
+    `${provenance(p, snapshot)} ` +
+    (p.listed_at !== null && age !== null
+      ? `Tracked since ${p.listed_at} — ${age} day${age === 1 ? '' : 's'} with no token on record (no market cap, no CoinGecko id, no symbol in the snapshot).`
+      : `No listing date in the snapshot, so age is taken as ${model.unknown_age_days} days; it records no token (no market cap, no CoinGecko id, no symbol).`);
+
+  const comp = p.category === null ? undefined : multiples.byCategory.get(p.category);
+  const categoryName = p.category ?? 'Other';
+  const multiplePart =
+    comp === undefined
+      ? `${categoryName} has no live-token protocol in the snapshot, so it takes the global multiple ${multiples.global.toFixed(2)}x.`
+      : comp.live_median !== null && comp.live_median_capped !== null && comp.live_median_capped < comp.live_median
+        ? `${categoryName} live protocols trade at a median ${comp.live_median.toFixed(2)}x TVL (${comp.live_count} comp${comp.live_count === 1 ? '' : 's'}, capped to ${comp.live_median_capped.toFixed(2)}x), shrunk to ${multiple.toFixed(2)}x.`
+        : `${categoryName} live protocols trade at a median ${comp.live_median === null ? 'n/a' : comp.live_median.toFixed(2) + 'x'} TVL (${comp.live_count} comp${comp.live_count === 1 ? '' : 's'}), shrunk to ${multiple.toFixed(2)}x.`;
+  const growthPart =
+    p.change_7d === null
+      ? 'No seven-day change is recorded, so growth is taken as 0%.'
+      : `Seven-day TVL change ${fmtSignedPct(p.change_7d)}.`;
+  const valueDriver =
+    `TVL ${fmtUsdShort(p.tvl_usd)} — #${tvlRank} of ${boardSize} by TVL, #${tvlRankInCategory} of ${categoryCount} in ${categoryName}. ` +
+    `${multiplePart} ${growthPart}`;
+
+  const anchor = p.change_7d !== null && Math.abs(p.change_7d - 10) < 0.01 ? 25 : 10;
+  const alt = impliedValue({ ...p, change_7d: anchor }, snapshot.as_of, multiple, model).implied;
+  const recorded = p.change_7d === null ? 'no recorded change' : fmtSignedPct(p.change_7d);
+  const sensitivity =
+    `If its seven-day change were +${anchor}% instead of ${recorded}, its implied value would be ${fmtUsdShort(alt)}${alt === implied ? ' — the same number.' : '.'}`;
+
+  return { token_status: tokenStatus, value_driver: valueDriver, sensitivity };
+}
+
 /** The snapshot's protocol by slug. */
 function bySlug(protocols: SnapshotProtocol[]): Map<string, SnapshotProtocol> {
   return new Map(protocols.map((p) => [p.slug, p]));
@@ -337,6 +421,20 @@ export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL): B
   });
   // Highest implied value first; slug breaks ties so the two grader runs agree byte for byte.
   scored.sort((a, b) => b.implied - a.implied || (a.p.slug < b.p.slug ? -1 : a.p.slug > b.p.slug ? 1 : 0));
+  // TVL ranks, overall and within each category, for the per-row story.
+  const byTvl = [...scored].sort((a, b) => b.p.tvl_usd - a.p.tvl_usd || (a.p.slug < b.p.slug ? -1 : 1));
+  const tvlRank = new Map<string, number>();
+  const tvlRankInCategory = new Map<string, number>();
+  const categoryCount = new Map<string, number>();
+  const catSeen = new Map<string, number>();
+  for (const [i, s] of byTvl.entries()) {
+    tvlRank.set(s.p.slug, i + 1);
+    const cat = s.p.category ?? 'Other';
+    const seen = (catSeen.get(cat) ?? 0) + 1;
+    catSeen.set(cat, seen);
+    tvlRankInCategory.set(s.p.slug, seen);
+    categoryCount.set(cat, (categoryCount.get(cat) ?? 0) + 1);
+  }
   return scored.map((s, i) => ({
     rank: i + 1,
     slug: s.p.slug,
@@ -360,6 +458,19 @@ export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL): B
       age_days: s.age,
     },
     farm_steps: farmSteps(s.p, s.age).map(stepText),
+    story: storyFor(
+      s.p,
+      s.age,
+      s.multiple,
+      s.implied,
+      tvlRank.get(s.p.slug)!,
+      tvlRankInCategory.get(s.p.slug)!,
+      categoryCount.get(s.p.category ?? 'Other')!,
+      scored.length,
+      snapshot,
+      multiples,
+      model,
+    ),
   }));
 }
 
@@ -423,7 +534,7 @@ function secondActionFor(p: SnapshotProtocol, chain: string): string {
 }
 
 /**
- * A protocol's farm plan: seven steps, each an action with a cost and a time.
+ * A protocol's farm plan: eight steps, each an action with a cost and a time.
  * The plan is derived from the protocol's own record (category, chains, TVL,
  * age), never from a hand-written list of names.
  */
@@ -511,6 +622,7 @@ export function radarRow(row: BoardRow): RadarRow {
     category_multiple: row.model.category_multiple,
     growth_multiplier: row.model.growth_multiplier,
     maturity_multiplier: row.model.maturity_multiplier,
+    story: row.story,
   };
 }
 
@@ -599,6 +711,22 @@ export function boardIssue(board: BoardRow[], snapshot: Snapshot): string | null
     if (steps.length < 3 || steps.length > 12) return `${r.slug} has ${steps.length} farm steps`;
     for (const s of steps) if (s.length < 20 || s.length > 600) return `${r.slug} has a farm step of ${s.length} characters`;
     if (!Number.isSafeInteger(r.implied_value_usd) || r.implied_value_usd <= 0) return `${r.slug} has implied value ${r.implied_value_usd}`;
+  }
+  return null;
+}
+
+/** Why a board's stories are not ones the gate will take, or null: every row carries three sentences, each short and saying what it must. */
+export function storyIssue(board: BoardRow[]): string | null {
+  for (const r of board) {
+    const s = r.story;
+    if (s === undefined || s === null) return `${r.slug} has no story`;
+    for (const [key, text] of Object.entries(s) as [keyof RowStory, string][]) {
+      if (typeof text !== 'string' || text.length < 20 || text.length > 600) {
+        return `${r.slug} has a ${key} story of ${typeof text === 'string' ? text.length : 'no'} characters`;
+      }
+    }
+    if (!s.token_status.includes('no token')) return `${r.slug} story never says it records no token`;
+    if (!s.value_driver.includes('TVL')) return `${r.slug} story never names its TVL`;
   }
   return null;
 }
