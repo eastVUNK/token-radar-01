@@ -22,8 +22,11 @@ network) plus `board.json` and `dossier.json` to `/output`.
   fix needed. Added per-row "Why this rank" stories (token status, value driver,
   sensitivity), model radar-3; two runs byte-identical, 0 mismatches, screenshots
   re-shot. See `STAGE3.md`.
-- **Stage 4 — next:** final review as the judge would, then Stage 5 sign-off,
-  then bundle transcripts and `makefun check`. Do NOT submit after Stage 3.
+- **Stage 4 — done:** final review, verdict NO (not quite final): one improvement
+  worth doing — board readability (implied-value bars + search width). All
+  verification passed on HEAD 369b47aa. See `STAGE4.md`.
+- **Stage 5 — next:** the board-readability change, re-verify, sign-off, then bundle
+  transcripts and `makefun check`. Do NOT submit after Stage 4.
 
 ## The model (design, see STAGE1.md)
 
